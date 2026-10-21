@@ -1,0 +1,4 @@
+winsdk==1.0.0b10
+pystray==0.19.5
+pillow==12.3.0
+uiautomation==2.0.29

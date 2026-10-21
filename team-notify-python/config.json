@@ -1,0 +1,73 @@
+{
+  "apps": [
+    "teams"
+  ],
+  "palavras_prioritarias": [
+    "urgente",
+    "urgência",
+    "parou",
+    "parada",
+    "ajuda",
+    "chamado",
+    "@luan"
+  ],
+  "palavras_chamada": [
+    "está ligando",
+    "ligando para você",
+    "chamada de",
+    "chamada recebida",
+    "is calling",
+    "calling you",
+    "iniciou uma reunião",
+    "reunião começou",
+    "started a meeting",
+    "meeting started"
+  ],
+  "botoes_chamada": [
+    "aceitar",
+    "atender",
+    "recusar",
+    "accept",
+    "decline",
+    "ingressar",
+    "participar",
+    "join"
+  ],
+  "remetentes_prioritarios": [],
+  "remetentes_silenciados": [],
+  "logs": {
+    "historico": false,
+    "salvar_texto": false,
+    "erros": false
+  },
+  "agrupar_minutos": 5,
+  "repetir_beep_segundos": 20,
+  "soneca_minutos": 10,
+  "horario_silencio": {
+    "ativo": false,
+    "inicio": "18:00",
+    "fim": "07:30"
+  },
+  "lembrete": {
+    "ativo": true,
+    "minutos": 10,
+    "repetir_minutos": 10,
+    "maximo": 3
+  },
+  "som": {
+    "ativo": true
+  },
+  "voz": {
+    "ativo": false,
+    "falar_texto": false
+  },
+  "celular": {
+    "ativo": false,
+    "servidor": "https://ntfy.sh",
+    "topico": "",
+    "ausente_minutos": 5,
+    "enviar_texto": false
+  },
+  "largura": 560,
+  "altura": 260
+}

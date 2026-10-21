@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teams Notify</title>
+<style>
+:root{--bg:#f5f6fa;--card:#fff;--tx:#1f2430;--mut:#6b7280;--bar:#464EB8;--bd:#e5e7eb;--ok:#2E7D32;--err:#C62828}
+@media(prefers-color-scheme:dark){:root{--bg:#14161c;--card:#1d2029;--tx:#e8eaf0;--mut:#9aa1b0;--bar:#7c85ff;--bd:#2c303c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 'Segoe UI',sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 80px}h1{font-size:22px;margin:0 0 4px}.mut{color:var(--mut)}
+.abas{display:flex;gap:6px;margin:16px 0;border-bottom:1px solid var(--bd)}
+.abas button{background:none;border:0;border-bottom:3px solid transparent;padding:8px 14px;font:inherit;font-weight:600;color:var(--mut);cursor:pointer}
+.abas button.on{color:var(--tx);border-color:var(--bar)}.aba{display:none}.aba.on{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.kpi b{display:block;font-size:28px}.kpi span{color:var(--mut);font-size:13px}
+h2{font-size:16px;margin:0 0 10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.row{display:flex;align-items:center;gap:8px;margin:5px 0}.row .n{width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .b{height:14px;background:var(--bar);border-radius:3px;min-width:2px}.row .v{color:var(--mut);font-size:13px}
+.horas{display:flex;align-items:flex-end;gap:3px;height:140px}.horas div{flex:1;text-align:center;font-size:10px;color:var(--mut)}
+.horas i{display:block;background:var(--bar);border-radius:3px 3px 0 0;margin-bottom:3px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
+th{color:var(--mut);font-weight:600}.tag{font-size:11px;padding:1px 6px;border-radius:8px;background:var(--bd)}
+.cfg label.l{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--bd)}
+.cfg label.l:last-child{border:0}.cfg small{display:block;color:var(--mut);font-size:12px}
+.cfg input[type=number]{width:80px}.cfg input[type=text],.cfg textarea{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx)}
+.cfg input[type=number],.cfg input[type=time]{font:inherit;padding:5px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx)}
+.cfg input[type=checkbox]{width:20px;height:20px;accent-color:var(--bar)}.cfg textarea{min-height:84px}.blk{padding:7px 0}
+.salvar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);padding:10px 16px;text-align:center}
+.salvar button{background:var(--bar);color:#fff;border:0;border-radius:8px;padding:9px 28px;font:inherit;font-weight:700;cursor:pointer}
+#msg{margin-left:14px;font-weight:600}.aviso{font-size:13px;color:var(--mut);margin:6px 0 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Teams Notify <span class="mut" style="font-size:13px;font-weight:400">· versão C#</span></h1>
+  <div class="mut">Painel e configurações · só acessível neste computador</div>
+  <div class="abas"><button data-a="painel">Painel</button><button data-a="cfg">Configurações</button></div>
+  <section class="aba" id="painel"></section>
+  <section class="aba" id="cfg"></section>
+</main>
+<div class="salvar"><button id="salvar">Salvar configurações</button><span id="msg"></span></div>
+
+<script>
+const T="__TOKEN__";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+// ---- construção segura de DOM (nunca innerHTML com dados) ----
+function h(tag,props,...filhos){
+  const e=document.createElement(tag);
+  for(const [k,v] of Object.entries(props||{})){
+    if(k==='class')e.className=v; else if(k==='text')e.textContent=v; else if(k.startsWith('data-'))e.setAttribute(k,v); else e[k]=v;
+  }
+  for(const f of filhos.flat())if(f!=null)e.append(f);
+  return e;
+}
+function aviso(t,ok=true){const m=$('#msg');m.textContent=t;m.style.color=ok?'var(--ok)':'var(--err)';setTimeout(()=>m.textContent='',4000)}
+async function api(p,corpo){
+  const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json','X-Token':T},body:JSON.stringify(corpo)});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.erro||('erro '+r.status));return j}
+
+// ---- esquema das configurações (mesmos caminhos do config.json) ----
+const SECOES=[
+ {t:'Som e voz',f:[
+  {k:'som.ativo',l:'Tocar beep',t:'bool'},
+  {k:'voz.ativo',l:'Falar o remetente',t:'bool',d:'Ex.: “Mensagem de Maria”.'},
+  {k:'voz.falar_texto',l:'Falar também o texto da mensagem',t:'bool',d:'Cuidado com conversas em voz alta perto de outras pessoas.'},
+  {k:'repetir_beep_segundos',l:'Repetir o beep a cada (segundos)',t:'int',min:5,max:600,d:'Enquanto o popup estiver aberto.'},
+  {k:'soneca_minutos',l:'Duração da soneca (minutos)',t:'int',min:1,max:240}]},
+ {t:'Logs e histórico',f:[
+  {k:'logs.historico',l:'Salvar histórico de notificações',t:'bool',d:'Arquivo historico.csv. É ele que alimenta o painel; desligado, o painel para de receber dados novos.'},
+  {k:'logs.salvar_texto',l:'Salvar o texto das mensagens no histórico',t:'bool',d:'Desligado: guarda só remetente, hora e tipo, sem o conteúdo.'},
+  {k:'logs.erros',l:'Salvar log de erros',t:'bool',d:'Arquivo teams_notify.log, usado para diagnosticar problemas.'}]},
+ {t:'Agrupar mensagens da mesma pessoa',f:[
+  {k:'agrupar_minutos',l:'Intervalo (minutos)',t:'int',min:0,max:240,d:'Várias mensagens da mesma pessoa dentro do intervalo geram um só popup. 0 desliga. Prioritárias e chamadas sempre aparecem.'}]},
+ {t:'Mensagem sem resposta',f:[
+  {k:'lembrete.ativo',l:'Lembrar de mensagens não resolvidas',t:'bool'},
+  {k:'lembrete.minutos',l:'Primeiro lembrete após (minutos)',t:'int',min:1,max:240},
+  {k:'lembrete.repetir_minutos',l:'Repetir a cada (minutos)',t:'int',min:1,max:240},
+  {k:'lembrete.maximo',l:'Máximo de lembretes por mensagem',t:'int',min:1,max:20}]},
+ {t:'Horário de silêncio',f:[
+  {k:'horario_silencio.ativo',l:'Ativar horário de silêncio',t:'bool'},
+  {k:'horario_silencio.inicio',l:'Início',t:'time'},
+  {k:'horario_silencio.fim',l:'Fim',t:'time'}]},
+ {t:'Filtros',f:[
+  {k:'palavras_prioritarias',l:'Palavras prioritárias',t:'lines',d:'Uma por linha. Popup vermelho e som mais forte.'},
+  {k:'remetentes_prioritarios',l:'Remetentes prioritários',t:'lines',d:'Uma por linha (parte do nome basta).'},
+  {k:'remetentes_silenciados',l:'Remetentes silenciados',t:'lines',d:'Uma por linha. Só vão para o histórico.'},
+  {k:'palavras_chamada',l:'Textos que indicam chamada/reunião',t:'lines',d:'Uma por linha. Ajuste após a primeira ligação real.'},
+  {k:'botoes_chamada',l:'Botões que indicam chamada/reunião',t:'lines',d:'Se o banner tiver um botão com esse texto (ex.: Aceitar), é tratado como chamada.'}]},
+ {t:'Aviso no celular (ntfy)',aviso:'Usa um serviço externo. Confira se a política da empresa permite. Só envia quando você está parado no PC.',f:[
+  {k:'celular.ativo',l:'Enviar para o celular',t:'bool'},
+  {k:'celular.servidor',l:'Servidor',t:'url',d:'Ex.: https://ntfy.sh ou um servidor próprio.'},
+  {k:'celular.topico',l:'Tópico',t:'text',d:'Use um nome longo e aleatório, como uma senha.'},
+  {k:'celular.ausente_minutos',l:'Considerar ausente após (minutos parado)',t:'int',min:1,max:240},
+  {k:'celular.enviar_texto',l:'Incluir o texto da mensagem',t:'bool',d:'Desligado: envia só “Nova mensagem no Teams”.'}]},
+];
+const obter=(o,k)=>k.split('.').reduce((a,p)=>a==null?undefined:a[p],o);
+
+function campo(f,cfg){
+  const v=obter(cfg,f.k), dica=f.d?h('small',{text:f.d}):null, at={'data-k':f.k,'data-t':f.t};
+  if(f.t==='lines')return h('div',{class:'blk'},h('b',{text:f.l}),dica,h('textarea',{...at,value:(v||[]).join('\n')}));
+  if(f.t==='text'||f.t==='url')return h('div',{class:'blk'},h('b',{text:f.l}),dica,h('input',{...at,'data-t':'text',type:'text',value:v||''}));
+  let e;
+  if(f.t==='bool')e=h('input',{...at,type:'checkbox',checked:!!v});
+  else if(f.t==='time')e=h('input',{...at,type:'time',value:v||''});
+  else e=h('input',{...at,type:'number',min:f.min,max:f.max,value:v??f.min});
+  return h('label',{class:'l'},h('span',{},f.l,dica),e);
+}
+function vivo(chave,rotulo,marcado,dica){
+  const e=h('input',{type:'checkbox',checked:!!marcado,'data-live':chave});
+  e.addEventListener('change',async()=>{
+    try{await api(chave==='inicio'?'/api/inicio':'/api/estado',chave==='inicio'?{ativo:e.checked}:{[chave]:e.checked});aviso('Aplicado ✓')}
+    catch(x){e.checked=!e.checked;aviso(x.message,false)}});
+  return h('label',{class:'l'},h('span',{},rotulo,dica?h('small',{text:dica}):null),e);
+}
+
+function renderConfig(d){
+  const raiz=$('#cfg');raiz.replaceChildren(
+    h('div',{class:'card cfg'},h('h2',{text:'Controles rápidos (aplicam na hora)'}),
+      vivo('pausado','Pausar todas as notificações',d.estado.pausado,'Nada aparece nem toca; fica só no histórico.'),
+      vivo('foco','Modo foco',d.estado.foco,'Só mensagens prioritárias e chamadas aparecem.'),
+      vivo('inicio','Iniciar com o Windows',d.estado.inicio)),
+    ...SECOES.map(s=>h('div',{class:'card cfg'},h('h2',{text:s.t}),s.aviso?h('p',{class:'aviso',text:s.aviso}):null,...s.f.map(f=>campo(f,d.config)))));
+}
+
+function barras(pares){
+  if(!pares.length)return h('p',{class:'mut',text:'Sem dados.'});
+  const topo=pares[0][1];
+  return h('div',{},...pares.map(([n,v])=>h('div',{class:'row'},h('span',{class:'n',title:n,text:n}),
+    h('span',{class:'b',style:'width:'+Math.max(2,Math.round(v/topo*160))+'px'}),h('span',{class:'v',text:String(v)}))));
+}
+function renderPainel(d){
+  const s=d.stats, topoH=Math.max(1,...s.porHora);
+  const kpi=(n,t)=>h('div',{class:'card kpi'},h('b',{text:String(n)}),h('span',{text:t}));
+  const dia=h('input',{type:'date',value:d.dia});dia.addEventListener('change',()=>carregar(dia.value));
+  const hist=d.config.logs&&d.config.logs.historico===false?h('p',{class:'aviso',text:'O histórico está desligado em Configurações; este painel não recebe dados novos.'}):null;
+  $('#painel').replaceChildren(
+    h('label',{},'Dia: ',dia),hist,
+    h('div',{class:'kpis'},kpi(s.total,'notificações recebidas'),kpi(s.prioritarias,'prioritárias'),kpi(s.chamadas,'chamadas / reuniões'),kpi(s.ocultadas,'ocultadas (silêncio/foco/pausa)')),
+    h('div',{class:'grid'},
+      h('div',{class:'card'},h('h2',{text:'Quem mais chamou'}),barras(s.porRemetente)),
+      h('div',{class:'card'},h('h2',{text:'Por hora'}),h('div',{class:'horas'},...s.porHora.map((n,i)=>
+        h('div',{},h('i',{style:'height:'+Math.round(n/topoH*110)+'px',title:String(n)}),String(i).padStart(2,'0')))))),
+    h('div',{class:'card'},h('h2',{text:'Últimas notificações'}),
+      h('table',{},h('tr',{},...['Hora','De','Mensagem','Tipo'].map(t=>h('th',{text:t}))),
+        ...(s.recentes.length?s.recentes.map(r=>h('tr',{},h('td',{text:r.hora}),h('td',{text:r.remetente}),h('td',{text:r.mensagem}),
+          h('td',{},h('span',{class:'tag',text:r.tipo+(r.motivo?' · '+r.motivo:'')})))):[h('tr',{},h('td',{colspan:4,class:'mut',text:'Nada neste dia.'}))]))));
+}
+
+async function carregar(dia){
+  const r=await fetch('/api/dados'+(dia?'?dia='+encodeURIComponent(dia):''),{headers:{'X-Token':T}});
+  if(!r.ok){aviso('Falha ao carregar ('+r.status+')',false);return}
+  const d=await r.json();renderPainel(d);if(!dia||!$('#cfg').children.length)renderConfig(d);
+}
+
+function aba(n){
+  $$('.aba').forEach(e=>e.classList.toggle('on',e.id===n));
+  $$('.abas button').forEach(e=>e.classList.toggle('on',e.dataset.a===n));
+  $('.salvar').style.display=n==='cfg'?'block':'none';history.replaceState(null,'','#'+n);
+}
+$$('.abas button').forEach(b=>b.addEventListener('click',()=>aba(b.dataset.a)));
+$('#salvar').addEventListener('click',async()=>{
+  const d={};
+  $$('[data-k]').forEach(el=>{const t=el.dataset.t;
+    d[el.dataset.k]=t==='bool'?el.checked:t==='int'?Number(el.value):t==='lines'?el.value.split('\n'):el.value});
+  try{await api('/api/config',d);aviso('Configurações salvas ✓')}catch(e){aviso(e.message,false)}});
+aba(location.hash==='#cfg'?'cfg':'painel');
+carregar();
+</script>
+</body>
+</html>
